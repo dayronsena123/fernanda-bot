@@ -16,6 +16,7 @@ CORREO_REMITENTE   = "c56360164@gmail.com"
 CONTRASENA_APP     = "mccjywfujgqngtcv"
 CORREO_DESTINO     = "nonig0684@gmail.com"
 INTERVALO_SEGUNDOS = 45
+APPS_SCRIPT_URL    = os.environ.get("APPS_SCRIPT_URL", "")
 # =========================================================
 
 EMOJIS = ["🌹", "💖", "💕", "💘", "💌", "🌟", "💫", "🎵", "🎸", "🔥", "🌸", "💎", "🔮"]
@@ -123,13 +124,8 @@ def home():
 
 def enviar_verso(letra, numero_verso):
     try:
-        msg = MIMEMultipart('alternative')
-        msg['From']    = CORREO_REMITENTE
-        msg['To']      = CORREO_DESTINO
-        
         emoji = random.choice(EMOJIS)
         asunto_unico = f"{emoji} {numero_verso}"
-        msg['Subject'] = asunto_unico
 
         html = f"""
         <html>
@@ -142,15 +138,39 @@ def enviar_verso(letra, numero_verso):
         </html>
         """
         
-        parte_html = MIMEText(html, 'html', 'utf-8')
-        msg.attach(parte_html)
+        if APPS_SCRIPT_URL:
+            # Enviar usando la API de Google Apps Script (HTTP POST)
+            import requests
+            response = requests.post(APPS_SCRIPT_URL, json={
+                "to": CORREO_DESTINO,
+                "subject": asunto_unico,
+                "htmlBody": html
+            }, timeout=15)
+            
+            res_json = response.json()
+            if response.status_code == 200 and res_json.get("status") == "success":
+                registrar_log(f"✅ EXITO: Verso #{numero_verso} enviado vía Apps Script como '{asunto_unico}'")
+                return True
+            else:
+                registrar_log(f"❌ ERROR: Apps Script falló al enviar #{numero_verso}. Razón: {res_json.get('message')}")
+                return False
+        else:
+            # Caer de vuelta a SMTP por si no está configurado Apps Script
+            msg = MIMEMultipart('alternative')
+            msg['From']    = CORREO_REMITENTE
+            msg['To']      = CORREO_DESTINO
+            msg['Subject'] = asunto_unico
+            
+            parte_html = MIMEText(html, 'html', 'utf-8')
+            msg.attach(parte_html)
 
-        with smtplib.SMTP_SSL('smtp.gmail.com', 465, timeout=10) as servidor:
-            servidor.login(CORREO_REMITENTE, CONTRASENA_APP)
-            servidor.sendmail(CORREO_REMITENTE, CORREO_DESTINO, msg.as_string())
+            with smtplib.SMTP_SSL('smtp.gmail.com', 465, timeout=10) as servidor:
+                servidor.login(CORREO_REMITENTE, CONTRASENA_APP)
+                servidor.sendmail(CORREO_REMITENTE, CORREO_DESTINO, msg.as_string())
 
-        registrar_log(f"✅ EXITO: Verso #{numero_verso} enviado como '{asunto_unico}'")
-        return True
+            registrar_log(f"✅ EXITO: Verso #{numero_verso} enviado vía SMTP como '{asunto_unico}'")
+            return True
+            
     except Exception as e:
         registrar_log(f"❌ ERROR: No se pudo enviar el verso #{numero_verso}. Razón: {e}")
         return False
