@@ -145,7 +145,7 @@ def enviar_verso(letra, numero_verso):
         parte_html = MIMEText(html, 'html', 'utf-8')
         msg.attach(parte_html)
 
-        with smtplib.SMTP_SSL('smtp.gmail.com', 465) as servidor:
+        with smtplib.SMTP_SSL('smtp.gmail.com', 465, timeout=10) as servidor:
             servidor.login(CORREO_REMITENTE, CONTRASENA_APP)
             servidor.sendmail(CORREO_REMITENTE, CORREO_DESTINO, msg.as_string())
 
