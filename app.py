@@ -141,11 +141,24 @@ def enviar_verso(letra, numero_verso):
         if APPS_SCRIPT_URL:
             # Enviar usando la API de Google Apps Script (HTTP POST)
             import requests
-            response = requests.post(APPS_SCRIPT_URL, json={
+            import json
+            
+            payload = {
                 "to": CORREO_DESTINO,
                 "subject": asunto_unico,
                 "htmlBody": html
-            }, timeout=15)
+            }
+            
+            headers = {
+                "Content-Type": "application/json; charset=utf-8"
+            }
+            
+            response = requests.post(
+                APPS_SCRIPT_URL, 
+                data=json.dumps(payload, ensure_ascii=False).encode('utf-8'), 
+                headers=headers, 
+                timeout=15
+            )
             
             res_json = response.json()
             if response.status_code == 200 and res_json.get("status") == "success":
