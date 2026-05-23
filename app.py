@@ -190,8 +190,17 @@ def bot_loop():
         indice = 0
 
     while True:
-        registrar_log("🤖 BOT PAUSADO: Esperando nueva configuración del usuario...")
-        time.sleep(30)
+        letra = VERSOS[indice % len(VERSOS)]
+        enviar_verso(letra, indice + 1)
+        indice += 1
+        
+        try:
+            with open("progreso.txt", "w") as f:
+                f.write(str(indice % len(VERSOS)))
+        except Exception as e:
+            registrar_log(f"⚠️ Alerta progreso.txt: {e}")
+            
+        time.sleep(INTERVALO_SEGUNDOS)
 
 # Lanzar el bucle del bot en segundo plano al cargar el módulo
 threading.Thread(target=bot_loop, daemon=True).start()
