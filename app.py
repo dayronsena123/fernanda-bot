@@ -8,19 +8,29 @@ from email.mime.multipart import MIMEMultipart
 from datetime import datetime
 from flask import Flask
 
-# Inicializamos la app de Flask para Render
+# Inicializamos la app de Flask
 app = Flask(__name__)
 
 # ===================== CONFIGURACION =====================
 CORREO_REMITENTE   = "c56360164@gmail.com"
 CONTRASENA_APP     = "mccjywfujgqngtcv"
 CORREO_DESTINO     = "nonig0684@gmail.com"
-INTERVALO_SEGUNDOS = 45  # cada 45 segundos
+INTERVALO_SEGUNDOS = 45
 # =========================================================
 
 EMOJIS = ["🌹", "💖", "💕", "💘", "💌", "🌟", "💫", "🎵", "🎸", "🔥", "🌸", "💎", "🔮"]
 
-# Versos ampliados con más rimas súper divertidas sobre Fernanda 😂
+# Historial para ver qué pasa en tiempo real desde la web
+HISTORIAL_LOGS = []
+
+def registrar_log(mensaje):
+    hora = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    linea = f"[{hora}] {mensaje}"
+    HISTORIAL_LOGS.append(linea)
+    if len(HISTORIAL_LOGS) > 100:
+        HISTORIAL_LOGS.pop(0)
+    print(linea)
+
 VERSOS = [
     "...hay un nombre...",
     "...que no me deja en paz...",
@@ -68,7 +78,7 @@ VERSOS = [
     "y aunque los correos sigan llegando...",
     "Fernanda. Fernanda. Fernanda. 😂",
     
-    # --- NUEVAS RIMAS Y VERSOS CREATIVOS ---
+    # --- RIMAS ---
     "Fernanda Valle de la Cruz... 🌟",
     "eres como mi señal de wi-fi... 📶",
     "Me conecto a ti y no me quiero desconectar... 😍",
@@ -89,35 +99,38 @@ VERSOS = [
     "FERNANDA. (y vuelve a empezar... 😈)"
 ]
 
-# Servir una página web simple para que Render mantenga el bot activo
 @app.route('/')
 def home():
-    return """
+    logs_html = "".join(f"<li style='margin-bottom: 5px;'>{log}</li>" for log in reversed(HISTORIAL_LOGS))
+    return f"""
     <html>
-    <body style="font-family: sans-serif; text-align: center; background-color: #0b020a; color: #ff1493; padding: 50px;">
+    <body style="font-family: sans-serif; background-color: #0b020a; color: #ff1493; padding: 40px; margin: 0; text-align: center;">
         <h1>🌹 BOT DE FERNANDA ACTIVADO 🌹</h1>
-        <p style="color: #fff; font-size: 18px;">El bot está corriendo 24/7 en la nube enviando la canción infinita.</p>
-        <div style="border: 2px solid #ff1493; padding: 20px; display: inline-block; border-radius: 10px; margin-top: 20px;
-                    box-shadow: 0 0 15px #ff1493;">
-            <span style="font-size: 24px; font-weight: bold; text-transform: uppercase;">¡Bucle Activo! ⚡</span>
+        <p style="color: #fff; font-size: 18px;">El bot está corriendo 24/7 en la nube enviando la canción infinita cada {INTERVALO_SEGUNDOS}s.</p>
+        <div style="border: 2px solid #ff1493; padding: 15px; display: inline-block; border-radius: 10px; margin-top: 10px; box-shadow: 0 0 15px #ff1493; background-color: #1a0518;">
+            <span style="font-size: 20px; font-weight: bold; text-transform: uppercase;">Estado: En línea ⚡</span>
+        </div>
+        
+        <h2 style="color: #fff; margin-top: 40px; text-align: left; max-width: 800px; margin-left: auto; margin-right: auto;">📋 Consola de Eventos (Últimos sucesos):</h2>
+        <div style="background-color: #150514; border: 1px solid #330c30; border-radius: 8px; padding: 20px; max-width: 800px; margin: 0 auto; text-align: left; height: 300px; overflow-y: scroll; color: #00ffcc; font-family: monospace; font-size: 14px; box-shadow: inset 0 0 10px #000;">
+            <ul style="list-style-type: none; padding: 0; margin: 0;">
+                {logs_html if HISTORIAL_LOGS else "<li>Esperando que inicie el primer envío...</li>"}
+            </ul>
         </div>
     </body>
     </html>
     """
 
 def enviar_verso(letra, numero_verso):
-    hora = datetime.now().strftime("%H:%M:%S")
     try:
         msg = MIMEMultipart('alternative')
         msg['From']    = CORREO_REMITENTE
         msg['To']      = CORREO_DESTINO
         
-        # Asunto dinámico para evitar hilos de Gmail
         emoji = random.choice(EMOJIS)
         asunto_unico = f"{emoji} {numero_verso}"
         msg['Subject'] = asunto_unico
 
-        # Estilo Neón Premium en HTML
         html = f"""
         <html>
         <body style="font-family: 'Arial Black', Impact, sans-serif; text-align: center; background-color: #0b020a; padding: 50px; margin: 0;">
@@ -136,40 +149,42 @@ def enviar_verso(letra, numero_verso):
             servidor.login(CORREO_REMITENTE, CONTRASENA_APP)
             servidor.sendmail(CORREO_REMITENTE, CORREO_DESTINO, msg.as_string())
 
-        print(f"[{hora}] Enviado verso #{numero_verso} (Asunto: {asunto_unico}): {letra}")
+        registrar_log(f"✅ EXITO: Verso #{numero_verso} enviado como '{asunto_unico}'")
         return True
     except Exception as e:
-        print(f"[{hora}] Error al enviar: {e}")
+        registrar_log(f"❌ ERROR: No se pudo enviar el verso #{numero_verso}. Razón: {e}")
         return False
 
-# Bucle infinito que correrá en segundo plano
+# Bucle infinito del bot
 def bot_loop():
-    # Intentamos leer progreso anterior si existe
+    registrar_log("Iniciando hilo del bot...")
+    
+    # Render puede iniciar múltiples trabajadores, agregamos un pequeño delay aleatorio inicial 
+    # para evitar envíos duplicados al arrancar
+    time.sleep(random.uniform(2, 5))
+    
     try:
         with open("progreso.txt", "r") as f:
             indice = int(f.read().strip())
     except:
         indice = 0
 
-    print("Iniciando bucle del bot en segundo plano...")
     while True:
         letra = VERSOS[indice % len(VERSOS)]
         enviar_verso(letra, indice + 1)
         indice += 1
         
-        # Guardar progreso
         try:
             with open("progreso.txt", "w") as f:
                 f.write(str(indice % len(VERSOS)))
         except Exception as e:
-            print(f"Error guardando progreso: {e}")
+            registrar_log(f"⚠️ Alerta progreso.txt: {e}")
             
         time.sleep(INTERVALO_SEGUNDOS)
 
-# Lanzar el bot en un hilo separado antes de arrancar Flask
+# Lanzar el bucle del bot en segundo plano al cargar el módulo
 threading.Thread(target=bot_loop, daemon=True).start()
 
 if __name__ == '__main__':
-    # Render asigna dinámicamente un puerto en la variable PORT
     port = int(os.environ.get("PORT", 5000))
     app.run(host='0.0.0.0', port=port)
